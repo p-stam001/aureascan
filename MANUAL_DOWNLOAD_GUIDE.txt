@@ -1,0 +1,62 @@
+================================================================================
+MANUAL DOWNLOAD GUIDE - Gradle Kotlin DSL Plugin 5.1.2
+================================================================================
+
+STEP 1: Download these 4 files using your browser or download manager
+================================================================================
+
+1. Plugin Marker POM:
+   https://plugins.gradle.org/m2/org/gradle/kotlin/kotlin-dsl/org.gradle.kotlin.kotlin-dsl.gradle.plugin/5.1.2/org.gradle.kotlin.kotlin-dsl.gradle.plugin-5.1.2.pom
+
+2. Plugin Marker JAR:
+   https://plugins.gradle.org/m2/org/gradle/kotlin/kotlin-dsl/org.gradle.kotlin.kotlin-dsl.gradle.plugin/5.1.2/org.gradle.kotlin.kotlin-dsl.gradle.plugin-5.1.2.jar
+
+3. Actual Plugin POM:
+   https://repo1.maven.org/maven2/org/gradle/kotlin/gradle-kotlin-dsl-plugins/5.1.2/gradle-kotlin-dsl-plugins-5.1.2.pom
+
+4. Actual Plugin JAR:
+   https://repo1.maven.org/maven2/org/gradle/kotlin/gradle-kotlin-dsl-plugins/5.1.2/gradle-kotlin-dsl-plugins-5.1.2.jar
+
+
+STEP 2: Place the files in these exact locations
+================================================================================
+
+Windows Path: C:\Users\1\.gradle\caches\modules-2\files-2.1\
+
+Location 1 - Plugin Marker (place files 1 and 2 here):
+C:\Users\1\.gradle\caches\modules-2\files-2.1\org.gradle.kotlin.kotlin-dsl\org.gradle.kotlin.kotlin-dsl.gradle.plugin\5.1.2\
+
+Files to place:
+- org.gradle.kotlin.kotlin-dsl.gradle.plugin-5.1.2.pom
+- org.gradle.kotlin.kotlin-dsl.gradle.plugin-5.1.2.jar
+
+Location 2 - Actual Plugin (place files 3 and 4 here):
+C:\Users\1\.gradle\caches\modules-2\files-2.1\org.gradle.kotlin\gradle-kotlin-dsl-plugins\5.1.2\
+
+Files to place:
+- gradle-kotlin-dsl-plugins-5.1.2.pom
+- gradle-kotlin-dsl-plugins-5.1.2.jar
+
+
+STEP 3: After placing files
+================================================================================
+
+Gradle will automatically create hash subdirectories when it tries to use these files.
+You may need to create a subdirectory with a hash name, but Gradle will handle this.
+
+Alternatively, you can run this command to let Gradle create the structure:
+  cd android && ./gradlew --refresh-dependencies
+
+Then try building again:
+  flutter run -d 127.0.0.1:7555
+
+
+IMPORTANT NOTES:
+================================================================================
+- Make sure the file names match exactly (including version numbers)
+- The directories should already be created by the script
+- If the JAR files are very small (less than 1KB), they might be redirect files
+- In that case, you may need to follow redirects manually
+
+
+
