@@ -18,7 +18,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Reset all analysis state when onboarding screen is shown
+    // Initialize all variables in analysis state when onboarding screen is displayed
     // Only reset once when the widget is first built
     if (!_hasReset) {
       _hasReset = true;
@@ -29,6 +29,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final analysisState = Provider.of<AnalysisState>(context, listen: false);
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -52,6 +53,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               GradientButton(
                 text: 'Continuar',
                 onPressed: () {
+                  analysisState.reset();
                   Navigator.of(context).push(
                     MaterialPageRoute(
                         builder: (context) => const CameraScreen()),

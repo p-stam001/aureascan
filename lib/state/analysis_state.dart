@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:aureascan_app/models/analysis_response.dart';
 import 'package:aureascan_app/services/api_service.dart';
 import 'package:aureascan_app/services/websocket_service.dart';
 import 'package:aureascan_app/utils/platform_io.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 
 class AnalysisState extends ChangeNotifier {
   final ApiService _apiService = ApiService();
@@ -13,6 +15,11 @@ class AnalysisState extends ChangeNotifier {
   String? _fileId;
   String? _fileUrl;
   String? _originalImagePath;
+  double? _imageAspectRatio;
+
+  // Uncropped image (for display)
+  String? _uncroppedImagePath; // For mobile (Android/iOS)
+  Uint8List? _uncroppedImageBytes; // For web
 
   // Job IDs
   String? _skinJobId;
@@ -36,10 +43,18 @@ class AnalysisState extends ChangeNotifier {
   String? _ratioError;
   String? _retouchError;
 
+  // Polling timers (to allow cancellation)
+  Timer? _skinPollTimer;
+  Timer? _ratioPollTimer;
+  Timer? _retouchPollTimer;
+
   // Getters
   String? get fileId => _fileId;
   String? get fileUrl => _fileUrl;
   String? get originalImagePath => _originalImagePath;
+  double? get imageAspectRatio => _imageAspectRatio;
+  String? get uncroppedImagePath => _uncroppedImagePath;
+  Uint8List? get uncroppedImageBytes => _uncroppedImageBytes;
   String? get skinJobId => _skinJobId;
   String? get ratioJobId => _ratioJobId;
   String? get retouchJobId => _retouchJobId;
@@ -60,11 +75,36 @@ class AnalysisState extends ChangeNotifier {
   bool get hasRatioResults => _ratioResults != null;
   bool get hasRetouchResults => _retouchResults != null;
 
+  /// Set uncropped image (called before uploading cropped image)
+  void setUncroppedImage({String? path, Uint8List? bytes}) {
+    _uncroppedImagePath = path;
+    _uncroppedImageBytes = bytes;
+    _safeNotifyListeners();
+  }
+
+  /// Safely notify listeners, deferring if called during build
+  void _safeNotifyListeners() {
+    try {
+      final scheduler = SchedulerBinding.instance;
+      if (scheduler.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+        // We're in the build phase, defer the notification
+        Future.microtask(() => notifyListeners());
+      } else {
+        // Safe to notify immediately
+        notifyListeners();
+      }
+    } catch (e) {
+      // If scheduler binding is not available, defer to be safe
+      Future.microtask(() => notifyListeners());
+    }
+  }
+
   /// Upload file
-  Future<void> uploadFile(dynamic file, {String? filename}) async {
+  Future<void> uploadFile(dynamic file,
+      {String? filename, double? aspectRatio}) async {
     _isUploading = true;
     _uploadError = null;
-    notifyListeners();
+    _safeNotifyListeners();
     try {
       FileUploadResponse response;
       if (file is String) {
@@ -81,12 +121,14 @@ class AnalysisState extends ChangeNotifier {
 
       _fileId = response.fileId;
       _fileUrl = response.fileUrl;
+      _imageAspectRatio = aspectRatio;
       _isUploading = false;
+      // Ensure state is fully updated before notifying
       notifyListeners();
     } catch (e) {
       _isUploading = false;
       _uploadError = e.toString();
-      notifyListeners();
+      _safeNotifyListeners();
       rethrow;
     }
   }
@@ -99,7 +141,7 @@ class AnalysisState extends ChangeNotifier {
 
     _isProcessingSkin = true;
     _skinError = null;
-    notifyListeners();
+    _safeNotifyListeners();
 
     try {
       final jobResponse = await _apiService.triggerSkinAnalysis(_fileId!);
@@ -112,17 +154,23 @@ class AnalysisState extends ChangeNotifier {
             _skinResults =
                 SkinAnalysisResults.fromJson(statusResponse.results!);
             _isProcessingSkin = false;
-            notifyListeners();
+            // Cancel polling since WebSocket delivered the result
+            _skinPollTimer?.cancel();
+            _skinPollTimer = null;
+            _safeNotifyListeners();
           } else if (statusResponse.isFailed) {
             _skinError = statusResponse.error ?? 'Skin analysis failed';
             _isProcessingSkin = false;
-            notifyListeners();
+            // Cancel polling since WebSocket delivered the result
+            _skinPollTimer?.cancel();
+            _skinPollTimer = null;
+            _safeNotifyListeners();
           }
         },
         onError: (error) {
-          _skinError = error.toString();
-          _isProcessingSkin = false;
-          notifyListeners();
+          debugPrint('WebSocket error for skin analysis: $error');
+          // Don't set error here, let polling handle it
+          // Only set error if polling also fails
         },
       );
 
@@ -131,7 +179,7 @@ class AnalysisState extends ChangeNotifier {
     } catch (e) {
       _isProcessingSkin = false;
       _skinError = e.toString();
-      notifyListeners();
+      _safeNotifyListeners();
       rethrow;
     }
   }
@@ -144,7 +192,7 @@ class AnalysisState extends ChangeNotifier {
 
     _isProcessingRatio = true;
     _ratioError = null;
-    notifyListeners();
+    _safeNotifyListeners();
 
     try {
       final jobResponse = await _apiService.triggerRatioAnalysis(_fileId!);
@@ -157,17 +205,23 @@ class AnalysisState extends ChangeNotifier {
             _ratioResults =
                 RatioAnalysisResults.fromJson(statusResponse.results!);
             _isProcessingRatio = false;
-            notifyListeners();
+            // Cancel polling since WebSocket delivered the result
+            _ratioPollTimer?.cancel();
+            _ratioPollTimer = null;
+            _safeNotifyListeners();
           } else if (statusResponse.isFailed) {
             _ratioError = statusResponse.error ?? 'Ratio analysis failed';
             _isProcessingRatio = false;
-            notifyListeners();
+            // Cancel polling since WebSocket delivered the result
+            _ratioPollTimer?.cancel();
+            _ratioPollTimer = null;
+            _safeNotifyListeners();
           }
         },
         onError: (error) {
-          _ratioError = error.toString();
-          _isProcessingRatio = false;
-          notifyListeners();
+          debugPrint('WebSocket error for ratio analysis: $error');
+          // Don't set error here, let polling handle it
+          // Only set error if polling also fails
         },
       );
 
@@ -176,7 +230,7 @@ class AnalysisState extends ChangeNotifier {
     } catch (e) {
       _isProcessingRatio = false;
       _ratioError = e.toString();
-      notifyListeners();
+      _safeNotifyListeners();
       rethrow;
     }
   }
@@ -189,7 +243,7 @@ class AnalysisState extends ChangeNotifier {
 
     _isProcessingRetouch = true;
     _retouchError = null;
-    notifyListeners();
+    _safeNotifyListeners();
 
     try {
       final jobResponse = await _apiService.triggerRetouchAnalysis(_fileId!);
@@ -202,17 +256,23 @@ class AnalysisState extends ChangeNotifier {
             _retouchResults =
                 RetouchAnalysisResults.fromJson(statusResponse.results!);
             _isProcessingRetouch = false;
-            notifyListeners();
+            // Cancel polling since WebSocket delivered the result
+            _retouchPollTimer?.cancel();
+            _retouchPollTimer = null;
+            _safeNotifyListeners();
           } else if (statusResponse.isFailed) {
             _retouchError = statusResponse.error ?? 'Retouch analysis failed';
             _isProcessingRetouch = false;
-            notifyListeners();
+            // Cancel polling since WebSocket delivered the result
+            _retouchPollTimer?.cancel();
+            _retouchPollTimer = null;
+            _safeNotifyListeners();
           }
         },
         onError: (error) {
-          _retouchError = error.toString();
-          _isProcessingRetouch = false;
-          notifyListeners();
+          debugPrint('WebSocket error for retouch analysis: $error');
+          // Don't set error here, let polling handle it
+          // Only set error if polling also fails
         },
       );
 
@@ -221,7 +281,7 @@ class AnalysisState extends ChangeNotifier {
     } catch (e) {
       _isProcessingRetouch = false;
       _retouchError = e.toString();
-      notifyListeners();
+      _safeNotifyListeners();
       rethrow;
     }
   }
@@ -230,9 +290,14 @@ class AnalysisState extends ChangeNotifier {
   Future<void> _pollSkinStatus() async {
     if (_skinJobId == null) return;
 
-    Timer.periodic(const Duration(seconds: 2), (timer) async {
-      if (!_isProcessingSkin) {
+    // Cancel existing timer if any
+    _skinPollTimer?.cancel();
+    _skinPollTimer = null;
+
+    _skinPollTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+      if (!_isProcessingSkin || _skinJobId == null) {
         timer.cancel();
+        _skinPollTimer = null;
         return;
       }
 
@@ -242,15 +307,18 @@ class AnalysisState extends ChangeNotifier {
           _skinResults = SkinAnalysisResults.fromJson(status.results!);
           _isProcessingSkin = false;
           timer.cancel();
-          notifyListeners();
+          _skinPollTimer = null;
+          _safeNotifyListeners();
         } else if (status.isFailed) {
           _skinError = status.error ?? 'Skin analysis failed';
           _isProcessingSkin = false;
           timer.cancel();
-          notifyListeners();
+          _skinPollTimer = null;
+          _safeNotifyListeners();
         }
       } catch (e) {
-        // Continue polling on error
+        // Continue polling on error, but log it
+        debugPrint('Polling error for skin analysis: $e');
       }
     });
   }
@@ -259,9 +327,14 @@ class AnalysisState extends ChangeNotifier {
   Future<void> _pollRatioStatus() async {
     if (_ratioJobId == null) return;
 
-    Timer.periodic(const Duration(seconds: 2), (timer) async {
-      if (!_isProcessingRatio) {
+    // Cancel existing timer if any
+    _ratioPollTimer?.cancel();
+    _ratioPollTimer = null;
+
+    _ratioPollTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+      if (!_isProcessingRatio || _ratioJobId == null) {
         timer.cancel();
+        _ratioPollTimer = null;
         return;
       }
 
@@ -271,15 +344,18 @@ class AnalysisState extends ChangeNotifier {
           _ratioResults = RatioAnalysisResults.fromJson(status.results!);
           _isProcessingRatio = false;
           timer.cancel();
-          notifyListeners();
+          _ratioPollTimer = null;
+          _safeNotifyListeners();
         } else if (status.isFailed) {
           _ratioError = status.error ?? 'Ratio analysis failed';
           _isProcessingRatio = false;
           timer.cancel();
-          notifyListeners();
+          _ratioPollTimer = null;
+          _safeNotifyListeners();
         }
       } catch (e) {
-        // Continue polling on error
+        // Continue polling on error, but log it
+        debugPrint('Polling error for ratio analysis: $e');
       }
     });
   }
@@ -288,9 +364,15 @@ class AnalysisState extends ChangeNotifier {
   Future<void> _pollRetouchStatus() async {
     if (_retouchJobId == null) return;
 
-    Timer.periodic(const Duration(seconds: 2), (timer) async {
-      if (!_isProcessingRetouch) {
+    // Cancel existing timer if any
+    _retouchPollTimer?.cancel();
+    _retouchPollTimer = null;
+
+    _retouchPollTimer =
+        Timer.periodic(const Duration(seconds: 2), (timer) async {
+      if (!_isProcessingRetouch || _retouchJobId == null) {
         timer.cancel();
+        _retouchPollTimer = null;
         return;
       }
 
@@ -300,24 +382,38 @@ class AnalysisState extends ChangeNotifier {
           _retouchResults = RetouchAnalysisResults.fromJson(status.results!);
           _isProcessingRetouch = false;
           timer.cancel();
-          notifyListeners();
+          _retouchPollTimer = null;
+          _safeNotifyListeners();
         } else if (status.isFailed) {
           _retouchError = status.error ?? 'Retouch analysis failed';
           _isProcessingRetouch = false;
           timer.cancel();
-          notifyListeners();
+          _retouchPollTimer = null;
+          _safeNotifyListeners();
         }
       } catch (e) {
-        // Continue polling on error
+        // Continue polling on error, but log it
+        debugPrint('Polling error for retouch analysis: $e');
       }
     });
   }
 
   /// Reset state
   void reset() {
+    // Cancel all polling timers
+    _skinPollTimer?.cancel();
+    _skinPollTimer = null;
+    _ratioPollTimer?.cancel();
+    _ratioPollTimer = null;
+    _retouchPollTimer?.cancel();
+    _retouchPollTimer = null;
+
     _fileId = null;
     _fileUrl = null;
     _originalImagePath = null;
+    _imageAspectRatio = null;
+    _uncroppedImagePath = null;
+    _uncroppedImageBytes = null;
     _skinJobId = null;
     _ratioJobId = null;
     _retouchJobId = null;
@@ -333,11 +429,15 @@ class AnalysisState extends ChangeNotifier {
     _ratioError = null;
     _retouchError = null;
     _wsService.disconnectAll();
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   @override
   void dispose() {
+    // Cancel all polling timers
+    _skinPollTimer?.cancel();
+    _ratioPollTimer?.cancel();
+    _retouchPollTimer?.cancel();
     _wsService.dispose();
     super.dispose();
   }

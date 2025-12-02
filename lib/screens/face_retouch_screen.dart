@@ -5,6 +5,7 @@ import 'package:aureascan_app/utils/app_colors.dart';
 import 'package:aureascan_app/widgets/analysis_processing_placeholder.dart';
 import 'package:aureascan_app/widgets/task_processing_loading_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -34,11 +35,32 @@ class _FaceRetouchScreenState extends State<FaceRetouchScreen> {
       _hasTriggeredAnalysis = true;
       analysisState.triggerRetouchAnalysis().catchError((e) {
         if (mounted) {
+          debugPrint('Error triggering retouch analysis: $e');
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erro ao iniciar análise: ${e.toString()}')),
+            SnackBar(
+              content: Text('Erro ao iniciar análise: ${e.toString()}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
           );
         }
       });
+    } else if (analysisState.fileId == null) {
+      // If fileId is null, show error
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Erro: Nenhuma imagem foi carregada. Por favor, volte e tente novamente.'),
+                backgroundColor: Colors.red,
+                duration: Duration(seconds: 4),
+              ),
+            );
+            Navigator.of(context).pop();
+          }
+        });
+      }
     }
   }
 
@@ -439,7 +461,12 @@ class _ImageWithLoadingTrackerState extends State<_ImageWithLoadingTracker> {
           setState(() {
             _hasLoaded = true;
           });
-          widget.onImageLoaded();
+          // Call onImageLoaded in next microtask to avoid build conflicts
+          Future.microtask(() {
+            if (mounted) {
+              widget.onImageLoaded();
+            }
+          });
         }
       });
     }
@@ -463,7 +490,12 @@ class _ImageWithLoadingTrackerState extends State<_ImageWithLoadingTracker> {
               setState(() {
                 _hasError = true;
               });
-              widget.onImageLoaded();
+              // Call onImageLoaded in next microtask to avoid build conflicts
+              Future.microtask(() {
+                if (mounted) {
+                  widget.onImageLoaded();
+                }
+              });
             }
           });
         }
