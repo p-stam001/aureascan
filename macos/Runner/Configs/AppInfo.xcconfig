@@ -8,7 +8,7 @@
 PRODUCT_NAME = aureascan_app
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.example.aureascanApp
+PRODUCT_BUNDLE_IDENTIFIER = com.scan.aureascanapp
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2025 com.example. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2025 com.scan.aureascan. All rights reserved.

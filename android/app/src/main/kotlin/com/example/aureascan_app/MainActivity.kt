@@ -1,4 +1,4 @@
-package com.example.aureascan_app
+package com.scan.aureascanapp
 
 import io.flutter.embedding.android.FlutterActivity
 
