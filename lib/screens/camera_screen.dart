@@ -21,9 +21,10 @@ class CameraScreen extends StatefulWidget {
 }
 
 class _CameraScreenState extends State<CameraScreen> {
-  static const double _fourThreeRatio = 4 / 3;
-  static const double _targetAspectRatio = 4 / 3; // 4:3 aspect ratio for crop
+  static const double _fourThreeRatio = 3 / 4;
+  static const double _targetAspectRatio = 3 / 4; // 3:4 aspect ratio for crop
   static const double _cropScaleFactor = 0.95; // 5% smaller (95% of frame size)
+  final _cameraKey = GlobalKey();
   CameraController? _controller;
   List<CameraDescription>? _cameras;
   bool _isCameraInitialized = false;
@@ -76,6 +77,15 @@ class _CameraScreenState extends State<CameraScreen> {
         return;
       }
     }
+    final cameraGrant = await Permission.camera.request().isGranted;
+    if (!cameraGrant) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permissão de câmera negada')),
+        );
+      }
+      return;
+    }
     _cameras = await availableCameras();
     if (_cameras != null && _cameras!.isNotEmpty) {
       final frontCamera = _cameras!.firstWhere(
@@ -84,11 +94,12 @@ class _CameraScreenState extends State<CameraScreen> {
       );
       _controller = CameraController(
         frontCamera,
-        ResolutionPreset.max,
+        ResolutionPreset.ultraHigh,
         enableAudio: false,
         imageFormatGroup:
             kIsWeb ? ImageFormatGroup.bgra8888 : ImageFormatGroup.jpeg,
       );
+
       await _controller!.initialize();
       if (!mounted) return;
       setState(() {
@@ -104,38 +115,24 @@ class _CameraScreenState extends State<CameraScreen> {
   }
 
   // Get frame coordinates in screen space (rectangular boundary)
-  Rect _getFrameRect(Size screenSize) {
+  Rect _getFrameRect() {
+    final screenSize = MediaQuery.of(context).size;
     final width = screenSize.width;
     final height = screenSize.height;
 
     // Get camera preview aspect ratio if available
-    double previewAspectRatio = _fourThreeRatio; // Default to 4:3
-    if (_controller != null && _controller!.value.isInitialized) {
-      final previewSize = _controller!.value.previewSize;
-      if (previewSize != null) {
-        final screenIsPortrait = screenSize.height >= screenSize.width;
-        final previewIsPortrait = previewSize.height >= previewSize.width;
-
-        Size adjustedPreviewSize = previewSize;
-        if (screenIsPortrait != previewIsPortrait) {
-          adjustedPreviewSize = Size(previewSize.height, previewSize.width);
-        }
-
-        previewAspectRatio =
-            adjustedPreviewSize.width / adjustedPreviewSize.height;
-      }
-    }
+    double previewAspectRatio = _fourThreeRatio;
 
     // Create a rectangular frame matching camera preview aspect ratio
     // Using 70% of screen width for the frame width
-    final frameWidth = width * 0.70;
+    final frameWidth = width * 0.6;
     final frameHeight = frameWidth / previewAspectRatio;
 
     final centerX = width / 2;
     final centerY = height / 2 - height * 0.04;
 
-    final frameLeft = centerX - (frameWidth / 2);
-    final frameTop = centerY - (frameHeight / 2);
+    final frameLeft = centerX - (width * 0.3);
+    final frameTop = centerY - (frameHeight * 3 / 5);
 
     return Rect.fromLTWH(frameLeft, frameTop, frameWidth, frameHeight);
   }
@@ -241,41 +238,24 @@ class _CameraScreenState extends State<CameraScreen> {
   ) async {
     final imageBytes = await File(imagePath).readAsBytes();
     final originalImage = _decodeAndNormalizeImage(imageBytes);
-
-    final imageSize =
-        Size(originalImage.width.toDouble(), originalImage.height.toDouble());
-
-    // Calculate crop rect that is 5% smaller than frame and maintains 4:3 aspect ratio
-    final cropRect = _calculateCropRect(frameRect);
-
-    // Convert crop rect from screen to image coordinates
-    final imageCropRect = _convertScreenToImageCoordinates(
-      cropRect,
-      screenSize,
-      imageSize,
-      _controller!,
-    );
-
+    final cameraHeight = _cameraKey.currentContext!.size!.height;
+    final screenHeight = screenSize.height;
     // Crop to the calculated rect with 4:3 aspect ratio
     final croppedImage = img.copyCrop(
       originalImage,
-      x: imageCropRect.left.toInt().clamp(0, originalImage.width),
-      y: imageCropRect.top.toInt().clamp(0, originalImage.height),
-      width: imageCropRect.width
-          .toInt()
-          .clamp(1, originalImage.width - imageCropRect.left.toInt()),
-      height: imageCropRect.height
-          .toInt()
-          .clamp(1, originalImage.height - imageCropRect.top.toInt()),
+      x: (frameRect.left * originalImage.width / screenSize.width).toInt(),
+      y: ((frameRect.top + cameraHeight / 2 - screenHeight / 2) *
+              originalImage.height /
+              cameraHeight)
+          .toInt(),
+      width: (frameRect.width * originalImage.width / screenSize.width).toInt(),
+      height: (frameRect.height * originalImage.height / cameraHeight).toInt(),
     );
-
-    // Use 4:3 aspect ratio
-    final aspectRatio = _targetAspectRatio;
 
     // Encode as JPG
     final bytes = Uint8List.fromList(img.encodeJpg(croppedImage, quality: 90));
 
-    return (bytes: bytes, aspectRatio: aspectRatio);
+    return (bytes: bytes, aspectRatio: _targetAspectRatio);
   }
 
   Future<({Uint8List bytes, double aspectRatio})> _cropImageToFrameWeb(
@@ -323,7 +303,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
   // Get the scaled rect for the face outline overlay (matches what's displayed)
   Rect _getNormalizedFrameRect(Size screenSize) {
-    final frameRect = _getFrameRect(screenSize);
+    final frameRect = _getFrameRect();
     double leftRatio = frameRect.left / screenSize.width;
     double topRatio = frameRect.top / screenSize.height;
     double widthRatio = frameRect.width / screenSize.width;
@@ -425,7 +405,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
     final analysisState = Provider.of<AnalysisState>(context, listen: false);
     final screenSize = MediaQuery.of(context).size;
-    final frameRect = _getFrameRect(screenSize);
+    final frameRect = _getFrameRect();
 
     try {
       final XFile image = await _controller!.takePicture();
@@ -551,9 +531,7 @@ class _CameraScreenState extends State<CameraScreen> {
   Future<void> pickImageFromGallery() async {
     final analysisState = Provider.of<AnalysisState>(context, listen: false);
     final ImagePicker picker = ImagePicker();
-    final screenSize = MediaQuery.of(context).size;
     // Use the rectangular frame boundary for cropping
-    final normalizedRect = _getNormalizedFrameRect(screenSize);
 
     try {
       final XFile? image = await picker.pickImage(
@@ -562,30 +540,26 @@ class _CameraScreenState extends State<CameraScreen> {
       );
 
       if (image != null) {
-        if (kIsWeb) {
-          final uncroppedBytes = await image.readAsBytes();
-          // Store uncropped image for display purposes only
-          analysisState.setUncroppedImage(bytes: uncroppedBytes);
-          // Crop the image - this returns the cropped bytes
-          final croppedResult = await _cropImageUsingNormalizedRect(
-              uncroppedBytes, normalizedRect);
-          // Upload ONLY the cropped image
-          await _processImageWeb(
-              analysisState, croppedResult.bytes, croppedResult.aspectRatio);
-        } else {
-          // Store uncropped image path for display purposes only
-          analysisState.setUncroppedImage(path: image.path);
-          final uncroppedBytes = await File(image.path).readAsBytes();
-          // Crop the image - this returns the cropped bytes
-          final croppedResult = await _cropImageUsingNormalizedRect(
-              uncroppedBytes, normalizedRect);
-          // Create temporary file with cropped image
-          final tempFile = File('${image.path}_cropped.jpg');
-          await tempFile.writeAsBytes(croppedResult.bytes);
-          // Upload ONLY the cropped image
-          await _processImage(
-              analysisState, tempFile.path, croppedResult.aspectRatio);
-        }
+        // if (kIsWeb) {
+        //   final uncroppedBytes = await image.readAsBytes();
+        //   // Store uncropped image for display purposes only
+        //   analysisState.setUncroppedImage(bytes: uncroppedBytes);
+        //   // Crop the image - this returns the cropped bytes
+        //   final croppedResult = await _cropImageUsingNormalizedRect(
+        //       uncroppedBytes, normalizedRect);
+        //   // Upload ONLY the cropped image
+        //   await _processImageWeb(
+        //       analysisState, croppedResult.bytes, croppedResult.aspectRatio);
+        // } else {
+        // Store uncropped image path for display purposes only
+        analysisState.setUncroppedImage(path: image.path);
+        final uncroppedBytes = await File(image.path).readAsBytes();
+        // Create temporary file with cropped image
+        final tempFile = File('${image.path}_cropped.jpg');
+        await tempFile.writeAsBytes(uncroppedBytes);
+        // Upload ONLY the cropped image
+        await _processImage(analysisState, tempFile.path, 1.0);
+        // }
       }
     } catch (e) {
       if (mounted) {
@@ -669,8 +643,15 @@ class _CameraScreenState extends State<CameraScreen> {
       body: Stack(
         children: [
           if (_isCameraInitialized && _controller != null)
-            Positioned.fill(
-              child: CameraPreview(_controller!),
+            // AspectRatio(
+            //   aspectRatio: 9 / 16, // override display ratio
+            //   child: CameraPreview(_controller!),
+            // )
+            Container(
+              alignment: Alignment.center,
+              height: double.infinity,
+              width: double.infinity,
+              child: CameraPreview(key: _cameraKey, _controller!),
             )
           else
             const Center(
@@ -687,7 +668,7 @@ class _CameraScreenState extends State<CameraScreen> {
             Positioned.fill(
               child: CustomPaint(
                 painter: _FaceFrameOverlayPainter(
-                  frameRect: _getFrameRect(MediaQuery.of(context).size),
+                  frameRect: _getFrameRect(),
                   overlayImage: _overlayImage,
                   useImageOverlay: _isOverlayImageLoaded,
                 ),

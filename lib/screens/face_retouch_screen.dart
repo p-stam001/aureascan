@@ -52,7 +52,8 @@ class _FaceRetouchScreenState extends State<FaceRetouchScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Erro: Nenhuma imagem foi carregada. Por favor, volte e tente novamente.'),
+                content: Text(
+                    'Erro: Nenhuma imagem foi carregada. Por favor, volte e tente novamente.'),
                 backgroundColor: Colors.red,
                 duration: Duration(seconds: 4),
               ),
@@ -75,7 +76,7 @@ class _FaceRetouchScreenState extends State<FaceRetouchScreen> {
       return AnalysisProcessingPlaceholder(
         title: 'Retoque Facial',
         overlayMessage: 'Processando retoque facial...',
-        imageUrl: originalImageUrl,
+        imageUrl: analysisState.uncroppedImagePath,
         backgroundColor: const Color(0xFFF5E6E8),
       );
     }

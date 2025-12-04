@@ -1,7 +1,7 @@
+import 'dart:io';
+
 import 'package:aureascan_app/utils/app_colors.dart';
 import 'package:aureascan_app/widgets/face_scan_loading_spinner.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class AnalysisProcessingPlaceholder extends StatelessWidget {
@@ -51,7 +51,9 @@ class AnalysisProcessingPlaceholder extends StatelessWidget {
                         child: Text(
                           title,
                           textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.headlineSmall
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
                               ?.copyWith(
                                 color: titleColor,
                                 fontWeight: FontWeight.w600,
@@ -71,20 +73,20 @@ class AnalysisProcessingPlaceholder extends StatelessWidget {
                         const SizedBox(height: 32),
                         Text(
                           overlayMessage,
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 12),
                         Text(
                           'Estamos preparando seus resultados. Isso pode levar alguns segundos.',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.85),
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.85),
+                                  ),
                           textAlign: TextAlign.center,
                         ),
                       ],
@@ -106,30 +108,32 @@ class AnalysisProcessingPlaceholder extends StatelessWidget {
       return fallback;
     }
 
-    return CachedNetworkImage(
-      imageUrl: imageUrl!,
-      fit: BoxFit.cover,
-      alignment: Alignment.center,
-      imageBuilder: (context, provider) => DecoratedBox(
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: provider,
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
-          ),
-        ),
-      ),
-      fadeInDuration: const Duration(milliseconds: 200),
-      fadeOutDuration: const Duration(milliseconds: 200),
-      placeholder: (_, __) => fallback,
-      errorWidget: (_, __, ___) {
-        // Log error for debugging
-        debugPrint('Failed to load background image: $imageUrl');
-        return fallback;
-      },
-      // Add cache key to ensure proper loading
-      cacheKey: imageUrl,
-    );
+    return Image.file(File(imageUrl!),
+        fit: BoxFit.fitHeight, alignment: Alignment.center);
+    // CachedNetworkImage(
+    //   imageUrl: imageUrl!,
+    //   fit: BoxFit.fitHeight,
+    //   alignment: Alignment.center,
+    //   imageBuilder: (context, provider) => DecoratedBox(
+    //     decoration: BoxDecoration(
+    //       image: DecorationImage(
+    //         image: provider,
+    //         fit: BoxFit.fitHeight,
+    //         alignment: Alignment.center,
+    //       ),
+    //     ),
+    //   ),
+    //   fadeInDuration: const Duration(milliseconds: 200),
+    //   fadeOutDuration: const Duration(milliseconds: 200),
+    //   placeholder: (_, __) => fallback,
+    //   errorWidget: (_, __, ___) {
+    //     // Log error for debugging
+    //     debugPrint('Failed to load background image: $imageUrl');
+    //     return fallback;
+    //   },
+    //   // Add cache key to ensure proper loading
+    //   cacheKey: imageUrl,
+    // );
   }
 
   Widget _buildEmptyFallback() {

@@ -78,7 +78,7 @@ class _SkinAnalysisScreenState extends State<SkinAnalysisScreen>
       return AnalysisProcessingPlaceholder(
         title: 'Análise de Pele',
         overlayMessage: 'Processando análise de pele...',
-        imageUrl: analysisState.fileUrl,
+        imageUrl: analysisState.uncroppedImagePath,
       );
     }
 

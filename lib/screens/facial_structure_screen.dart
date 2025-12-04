@@ -54,7 +54,8 @@ class _FacialStructureScreenState extends State<FacialStructureScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Erro: Nenhuma imagem foi carregada. Por favor, volte e tente novamente.'),
+                content: Text(
+                    'Erro: Nenhuma imagem foi carregada. Por favor, volte e tente novamente.'),
                 backgroundColor: Colors.red,
                 duration: Duration(seconds: 4),
               ),
@@ -125,7 +126,7 @@ class _FacialStructureScreenState extends State<FacialStructureScreen> {
       return AnalysisProcessingPlaceholder(
         title: 'Análise facial',
         overlayMessage: 'Processando análise facial...',
-        imageUrl: analysisState.fileUrl,
+        imageUrl: analysisState.uncroppedImagePath,
         backgroundColor: AppColors.background,
         headerColor: const Color(0xFF2A2A2A),
         titleColor: Colors.white,

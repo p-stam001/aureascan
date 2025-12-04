@@ -2,6 +2,8 @@
     <!-- Internet permission is required for API calls -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- Camera permission is required for camera functionality -->
+    <uses-permission android:name="android.permission.CAMERA"/>
     
     <application
         android:label="aureascan_app"
