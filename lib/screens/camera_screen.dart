@@ -68,7 +68,7 @@ class _CameraScreenState extends State<CameraScreen> {
   Future<void> _initializeCamera() async {
     if (!kIsWeb) {
       final cameraStatus = await Permission.camera.request();
-      if (!cameraStatus.isGranted) {
+      if (cameraStatus.isDenied) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Permissão de câmera negada')),
@@ -76,16 +76,23 @@ class _CameraScreenState extends State<CameraScreen> {
         }
         return;
       }
-    }
-    final cameraGrant = await Permission.camera.request().isGranted;
-    if (!cameraGrant) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Permissão de câmera negada')),
-        );
+      if (cameraStatus.isPermanentlyDenied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Permissão de câmera negada. Abra as configurações para habilitar.'),
+              action: SnackBarAction(
+                label: 'Configurações',
+                onPressed: () => openAppSettings(),
+              ),
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+        return;
       }
-      return;
     }
+    
     _cameras = await availableCameras();
     if (_cameras != null && _cameras!.isNotEmpty) {
       final frontCamera = _cameras!.firstWhere(
