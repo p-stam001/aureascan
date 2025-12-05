@@ -493,7 +493,7 @@ class _SkinAnalysisScreenState extends State<SkinAnalysisScreen>
                 borderRadius: BorderRadius.circular(18),
                 child: SizedBox(
                   width: double.infinity,
-                  height: 360,
+                  height: 430,
                   child: CachedNetworkImage(
                     imageUrl: tab.imageUrl,
                     placeholder: (context, url) => Container(
@@ -554,8 +554,8 @@ class _SkinAnalysisScreenState extends State<SkinAnalysisScreen>
           const SizedBox(height: 24),
           // Score/Dimension cards
           if (tab.score != null)
-            _buildScoreCard('Pontuação',
-                '${(tab.score! * 100).toStringAsFixed(0)}%', tab.score!),
+            _buildScoreCard(
+                'Pontuação', '${tab.score!.toStringAsFixed(0)}%', tab.score!),
           if (tab.skinAge != null)
             _buildScoreCard('Idade da Pele', '${tab.skinAge} anos', null),
         ],
